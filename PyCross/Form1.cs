@@ -14,7 +14,7 @@ namespace PyCross
         public Form1()
         {
             InitializeComponent();
-            PyCrossAPI.Init(this);
+            PyAPI.Init(this);
             WFAPI.Init(this);
             listView1.View = View.Details;
             listView1.Columns.Add("Python Plugins", 250);
@@ -97,12 +97,13 @@ namespace PyCross
                 PythonEngine.Exec(@"
 import clr
 clr.AddReference('PyCross')
-from PyCross import PyCrossAPI, WFAPI
-log = PyCrossAPI.log
-get_info = PyCrossAPI.get_info
-get_character_data = PyCrossAPI.get_character_data
-start = PyCrossAPI.start
-stop = PyCrossAPI.stop
+from PyCross import PyAPI, WFAPI
+log = PyAPI.log
+get_info = PyAPI.get_info
+get_character_data = PyAPI.get_character_data
+start = PyAPI.start
+stop = PyAPI.stop
+move_item = PyAPI.move_item
 button = WFAPI.button
 label = WFAPI.label
 create_page = WFAPI.create_page

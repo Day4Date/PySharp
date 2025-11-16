@@ -1,11 +1,12 @@
 ﻿using System;
 using System.Windows.Forms;
+using PyCross;
 
-namespace PyCross
+namespace PyCross.API.Core
 {
-    public static class PyCrossAPI
+    public static class CoreAPI
     {
-        private static Form1 _form;
+        private static Form1? _form;
 
         public static void Init(Form1 form)
         {
@@ -28,7 +29,6 @@ namespace PyCross
 
         public static string get_character_data(string name)
         {
-            // Beispiel: später aus einer DB oder Datei laden
             return $"Character {name} hat Level 42.";
         }
 
