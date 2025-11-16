@@ -1,6 +1,9 @@
-﻿using System.Diagnostics;
 using System.Windows.Forms;
 using Python.Runtime;
+using PyCross.API.Botting;
+using PyCross.API.Core;
+using PyCross.API.Gui;
+using PyCross.API.Inventory;
 
 namespace PyCross
 {
@@ -14,8 +17,10 @@ namespace PyCross
         public Form1()
         {
             InitializeComponent();
-            PyCrossAPI.Init(this);
-            WFAPI.Init(this);
+            CoreAPI.Init(this);
+            GuiAPI.Init(this);
+            InventoryAPI.Init(this);
+            BottingAPI.Init(this);
             listView1.View = View.Details;
             listView1.Columns.Add("Python Plugins", 250);
             InitPythonRuntime();
@@ -97,16 +102,36 @@ namespace PyCross
                 PythonEngine.Exec(@"
 import clr
 clr.AddReference('PyCross')
+from PyCross.API.Core import CoreAPI
+from PyCross.API.Gui import GuiAPI
+from PyCross.API.Inventory import InventoryAPI
+from PyCross.API.Botting import BottingAPI
 from PyCross import PyCrossAPI, WFAPI
-log = PyCrossAPI.log
-get_info = PyCrossAPI.get_info
-get_character_data = PyCrossAPI.get_character_data
-start = PyCrossAPI.start
-stop = PyCrossAPI.stop
-button = WFAPI.button
-label = WFAPI.label
-create_page = WFAPI.create_page
-show_page = WFAPI.show_page
+
+# Kernfunktionen
+log = CoreAPI.log
+get_info = CoreAPI.get_info
+get_character_data = CoreAPI.get_character_data
+start = CoreAPI.start
+stop = CoreAPI.stop
+
+# GUI-Funktionen
+button = GuiAPI.button
+label = GuiAPI.label
+create_page = GuiAPI.create_page
+show_page = GuiAPI.show_page
+
+# Inventar-Funktionen
+get_inventory_items = InventoryAPI.get_inventory_items
+refresh_inventory = InventoryAPI.refresh
+
+# Botting-Funktionen
+start_profile = BottingAPI.start_profile
+stop_profile = BottingAPI.stop_profile
+
+# Rückwärtskompatible Aliasse
+legacy_log = PyCrossAPI.log
+legacy_button = WFAPI.button
 ");
             }
         }
