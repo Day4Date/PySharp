@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Windows.Forms;
 using Python.Runtime;
+using PyCross.API.ModuleLoader;
 
 namespace PyCross
 {
@@ -14,8 +15,7 @@ namespace PyCross
         public Form1()
         {
             InitializeComponent();
-            PyAPI.Init(this);
-            WFAPI.Init(this);
+            ModuleLoader.InitAll(this);
             listView1.View = View.Details;
             listView1.Columns.Add("Python Plugins", 250);
             InitPythonRuntime();
@@ -73,8 +73,47 @@ namespace PyCross
                 MessageBox.Show("Fehler beim Laden der Plugins:\n" + ex.Message);
             }
         }
+//        private void InitPythonRuntime()
+//        {
+//            string projectDir = Directory.GetParent(Application.StartupPath).Parent.Parent.FullName;
+//            string pythonHome = Path.Combine(projectDir, "PyRuntime");
+//            string pythonDll = Directory.GetFiles(pythonHome, "python31*.dll").FirstOrDefault();
+
+//            if (pythonDll == null)
+//            {
+//                AppendLog("Keine Python-DLL gefunden!");
+//                return;
+//            }
+
+//            Runtime.PythonDLL = pythonDll;
+//            PythonEngine.PythonHome = pythonHome;
+//            PythonEngine.PythonPath = pythonHome + ";" + Path.Combine(pythonHome, "Lib");
+
+//            PythonEngine.Initialize();
+//            PythonEngine.BeginAllowThreads(); // wichtig für spätere GIL-Nutzung
+
+//            using (Py.GIL())
+//            {
+//                PythonEngine.Exec(@"
+//import clr
+//clr.AddReference('PyCross')
+//from PyCross import PyAPI, WFAPI
+//log = PyAPI.log
+//get_info = PyAPI.get_info
+//get_character_data = PyAPI.get_character_data
+//start = PyAPI.start
+//stop = PyAPI.stop
+//move_item = PyAPI.move_item
+//button = WFAPI.button
+//label = WFAPI.label
+//create_page = WFAPI.create_page
+//show_page = WFAPI.show_page
+//");
+//            }
+//        }
         private void InitPythonRuntime()
         {
+            // 1. Pfade setzen (gleich wie bisher)
             string projectDir = Directory.GetParent(Application.StartupPath).Parent.Parent.FullName;
             string pythonHome = Path.Combine(projectDir, "PyRuntime");
             string pythonDll = Directory.GetFiles(pythonHome, "python31*.dll").FirstOrDefault();
@@ -90,27 +129,52 @@ namespace PyCross
             PythonEngine.PythonPath = pythonHome + ";" + Path.Combine(pythonHome, "Lib");
 
             PythonEngine.Initialize();
-            PythonEngine.BeginAllowThreads(); // wichtig für spätere GIL-Nutzung
+            PythonEngine.BeginAllowThreads();
 
+            // 2. API-Namespace nach Python exportieren
             using (Py.GIL())
             {
-                PythonEngine.Exec(@"
+                try
+                {
+                    PythonEngine.Exec(@"
 import clr
+import sys
+import types
+
+# C# Projekt referenzieren
 clr.AddReference('PyCross')
-from PyCross import PyAPI, WFAPI
-log = PyAPI.log
-get_info = PyAPI.get_info
-get_character_data = PyAPI.get_character_data
-start = PyAPI.start
-stop = PyAPI.stop
-move_item = PyAPI.move_item
-button = WFAPI.button
-label = WFAPI.label
-create_page = WFAPI.create_page
-show_page = WFAPI.show_page
+
+# Plugin registry laden
+from PyCross.API.ModuleLoader import PythonModule
+
+# Neues Modul erzeugen
+pycross = types.ModuleType('pycross')
+
+# Plugins abrufen
+plugins = PythonModule.all()
+
+# Alle Plugin-Methoden exportieren
+for name, plugin in plugins.items():
+    for attr_name in dir(plugin):
+        if attr_name.startswith('_'):
+            continue
+
+        attr = getattr(plugin, attr_name)
+
+        if callable(attr):
+            setattr(pycross, attr_name, attr)
+
+# Modul registrieren
+sys.modules['pycross'] = pycross
 ");
+                }
+                catch (PythonException ex)
+                {
+                    MessageBox.Show(ex.ToString(), "Python Fehler");
+                }
             }
         }
+
         private void button1_Click(object sender, EventArgs e)
         {
             LoadPythonPlugins();

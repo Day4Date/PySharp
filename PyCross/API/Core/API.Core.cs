@@ -1,18 +1,78 @@
-﻿namespace PyCross
+﻿using System;
+using System.Windows.Forms;
+using PyCross;                  // Für Form1
+using PyCross.API;       // Für IPythonPlugin
+
+namespace PyCross.API.Core
 {
-    public static class PyAPI
+    /// <summary>
+    /// Dieses Modul stellt Kernfunktionen für Python zur Verfügung,
+    /// z.B. Logging, Infos, Charakterdaten und Start/Stop.
+    /// </summary>
+    public class CoreAPI : IPythonPlugin
     {
-        public static void Init(Form1 form) => API.Core.CoreAPI.Init(form);
+        // Referenz auf die Haupt-Form (Form1),
+        // damit wir z.B. ins Log schreiben können.
+        private Form1? _form;
 
-        public static void log(string message) => API.Core.CoreAPI.log(message);
+        /// <summary>
+        /// Der eindeutige Name dieses Plugins.
+        /// Diesen Namen können wir später z.B. im ModuleLoader oder in Python nutzen.
+        /// </summary>
+        public string ModuleName => "core";
 
-        public static dynamic get_info() => API.Core.CoreAPI.get_info();
+        /// <summary>
+        /// Diese Methode wird beim Start einmal aufgerufen,
+        /// damit das Plugin die Form (Form1) bekommt.
+        /// </summary>
+        /// <param name="form">Die Hauptform der Anwendung.</param>
+        public void Init(Form1 form)
+        {
+            _form = form;
+        }
 
-        public static string get_character_data(string name) => API.Core.CoreAPI.get_character_data(name);
+        /// <summary>
+        /// Schreibt eine Nachricht ins Log-Fenster.
+        /// </summary>
+        public void log(string message)
+        {
+            _form?.AppendLog(message);
+        }
 
-        public static void start() => API.Core.CoreAPI.start();
+        /// <summary>
+        /// Gibt einfache Info-Daten zurück (z.B. Datum, Zeichen).
+        /// </summary>
+        public dynamic get_info()
+        {
+            return new
+            {
+                Char = "DayDate",
+                Time = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+            };
+        }
 
-        public static void stop() => API.Core.CoreAPI.stop();
-        public static Dictionary<string, object> move_item(int from, int to, int quantity) => API.Inventory.InventoryAPI.MoveItem(from, to, quantity = 1);
+        /// <summary>
+        /// Gibt Beispiel-Charakterdaten zurück.
+        /// </summary>
+        public string get_character_data(string name)
+        {
+            return $"Character {name} hat Level 42.";
+        }
+
+        /// <summary>
+        /// Beispiel-Start-Funktion.
+        /// </summary>
+        public void start()
+        {
+            _form?.AppendLog("Plugin gestartet.");
+        }
+
+        /// <summary>
+        /// Beispiel-Stop-Funktion.
+        /// </summary>
+        public void stop()
+        {
+            _form?.AppendLog("Plugin gestoppt.");
+        }
     }
 }
