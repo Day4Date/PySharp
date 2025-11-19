@@ -1,23 +1,14 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
 using System.Windows.Forms;
 using Python.Runtime;
-using PyCross;                  // Für Form1
-using PyCross.API;       // Für IPythonPlugin
+using PyCross.API.GUI.Controls;
 
 namespace PyCross.API.GUI
 {
-    /// <summary>
-    /// Dieses Plugin stellt GUI-Funktionen zur Verfügung, die von Python
-    /// aus verwendet werden können (Buttons, Labels, Seiten/Tabs etc.).
-    /// </summary>
     public class WFAPI : IPythonPlugin
     {
-        private Form1? _form;
-
-        // Für jede Plugin-Seite merken wir uns ein Panel/TabPage.
-        private readonly Dictionary<string, TabPage> _pluginPages = new();
+        private Form1 _form;
+        public Form1 Form => _form;
 
         public string ModuleName => "gui";
 
@@ -26,10 +17,73 @@ namespace PyCross.API.GUI
             _form = form;
         }
 
-        /// <summary>
-        /// Erstellt eine neue Seite (Tab) für ein Plugin.
-        /// </summary>
-        public void CreatePage(string pluginName)
+        private readonly List<GuiControlWrapper> _activeControls = new();
+
+        // ----------------------------
+        // GUI WRAPPER SYSTEM
+        // ----------------------------
+
+        public class GUI
+        {
+            private readonly WFAPI _api;
+            public string PluginName { get; }
+
+            public GUI(string pluginName)
+            {
+                PluginName = pluginName;
+                _api = ModuleLoader.ModuleLoader.Get("gui") as WFAPI;
+
+                _api.CreatePage(pluginName);
+            }
+
+            public LabelWrapper Label(string text, int x, int y)
+            {
+                var lbl = _api.CreateLabel(PluginName, x, y, text);
+                var wrapper = new LabelWrapper(lbl, _api.Form);
+                _api._activeControls.Add(wrapper);
+                return wrapper;
+            }
+
+            public ButtonWrapper Button(string text, int x, int y, PyObject handler)
+            {
+                var btn = _api.CreateButton(PluginName, x, y, text);
+                var wrapper = new ButtonWrapper(btn, _api.Form, handler);
+                _api._activeControls.Add(wrapper);
+                return wrapper;
+            }
+            public CheckBoxWrapper CheckBox(string text, int x, int y, PyObject handler)
+            {
+                var cb = _api.CreateCheckBox(PluginName, x, y, text);
+                var wrapper = new CheckBoxWrapper(cb, _api.Form, handler);
+                _api._activeControls.Add(wrapper);
+                return wrapper;
+            }
+
+            public TextBoxWrapper TextBox(string defaultText, int x, int y, PyObject handler)
+            {
+                var tb = _api.CreateTextBox(PluginName, x, y, defaultText);
+                var wrapper = new TextBoxWrapper(tb, _api.Form, handler);
+                _api._activeControls.Add(wrapper);
+                return wrapper;
+            }
+
+            public ComboBoxWrapper ComboBox(int x, int y, PyObject handler)
+            {
+                var cb = _api.CreateComboBox(PluginName, x, y);
+                var wrapper = new ComboBoxWrapper(cb, _api.Form, handler);
+                _api._activeControls.Add(wrapper);
+                return wrapper;
+            }
+
+        }
+
+        // ===================================================
+        // WinForms-Methoden (von vorher)
+        // ===================================================
+
+        private readonly Dictionary<string, TabPage> _pluginPages = new();
+
+        private void CreatePage(string pluginName)
         {
             if (_form == null) return;
 
@@ -40,126 +94,116 @@ namespace PyCross.API.GUI
                     var page = new TabPage
                     {
                         Name = pluginName,
-                        Dock = DockStyle.Fill,
-                        AutoScroll = true,
                         Text = pluginName,
-                        Visible = false
+                        AutoScroll = true
                     };
 
-                    _form.tabControl1.Controls.Add(page);
                     _pluginPages[pluginName] = page;
+                    _form.tabControl1.TabPages.Add(page);
                 }
             }));
         }
 
-        /// <summary>
-        /// Zeigt die Seite (Tab) eines bestimmten Plugins an.
-        /// </summary>
-        public void ShowPage(string pluginName)
+        private Label CreateLabel(string pluginName, int x, int y, string text)
         {
-            if (_form == null) return;
+            Label lbl = new Label { Text = text, Left = x, Top = y, AutoSize = true };
 
-            _form.Invoke(new Action(() =>
-            {
-                foreach (Control c in _form.tabControl1.Controls)
-                    c.Visible = false;
-
-                if (_pluginPages.ContainsKey(pluginName))
-                    _pluginPages[pluginName].Visible = true;
-            }));
-        }
-
-        /// <summary>
-        /// Erstellt einen Button auf der Seite eines Plugins und verknüpft ihn mit einem Python-Callback.
-        /// </summary>
-        public Button? Button(string pluginName, int x, int y, string text, PyObject clickHandler)
-        {
-            if (_form == null) return null;
-
-            Button? btn = null;
-
-            _form.Invoke(new Action(() =>
-            {
-                if (_pluginPages.ContainsKey(pluginName))
-                {
-                    btn = new Button
-                    {
-                        Text = text,
-                        Location = new Point(x, y),
-                        Size = new Size(100, 30)
-                    };
-
-                    btn.Click += (sender, e) =>
-                    {
-                        // Klick wird in einem separaten Task ausgeführt
-                        Task.Run(() =>
-                        {
-                            using (Py.GIL())
-                            {
-                                dynamic func = clickHandler;
-                                func(sender, e); // Python-Funktion wird aufgerufen
-                            }
-                        });
-                    };
-
-                    _pluginPages[pluginName].Controls.Add(btn);
-                }
-            }));
-
-            return btn;
-        }
-
-        /// <summary>
-        /// Erstellt ein Label auf der Seite eines Plugins.
-        /// </summary>
-        public Label? Label(string pluginName, int x, int y, string text)
-        {
-            if (_form == null) return null;
-
-            Label? lbl = null;
-
-            _form.Invoke(new Action(() =>
-            {
-                if (_pluginPages.ContainsKey(pluginName))
-                {
-                    lbl = new Label
-                    {
-                        Text = text,
-                        Location = new Point(x, y),
-                        AutoSize = true
-                    };
-
-                    _pluginPages[pluginName].Controls.Add(lbl);
-                }
-            }));
-
+            AddControl(pluginName, lbl);
             return lbl;
         }
 
-        /// <summary>
-        /// Setzt den Text eines Labels.
-        /// </summary>
-        public void SetText(Label element, string text)
+        private Button CreateButton(string pluginName, int x, int y, string text)
+        {
+            Button btn = new Button { Text = text, Left = x, Top = y, AutoSize = true };
+
+            AddControl(pluginName, btn);
+            return btn;
+        }
+        private CheckBox CreateCheckBox(string pageName, int x, int y, string text)
+        {
+            CheckBox cb = new CheckBox
+            {
+                Text = text,
+                Left = x,
+                Top = y,
+                AutoSize = true
+            };
+
+            AddControl(pageName, cb);
+            return cb;
+        }
+
+        private TextBox CreateTextBox(string pageName, int x, int y, string defaultText)
+        {
+            TextBox tb = new TextBox
+            {
+                Text = defaultText,
+                Left = x,
+                Top = y,
+                Width = 150
+            };
+
+            AddControl(pageName, tb);
+            return tb;
+        }
+
+        private ComboBox CreateComboBox(string pageName, int x, int y)
+        {
+            ComboBox cb = new ComboBox
+            {
+                Left = x,
+                Top = y,
+                Width = 150,
+                DropDownStyle = ComboBoxStyle.DropDownList
+            };
+
+            AddControl(pageName, cb);
+            return cb;
+        }
+
+        private void AddControl(string pluginName, Control c)
+        {
+            if (_pluginPages.TryGetValue(pluginName, out var page))
+            {
+                _form.Invoke(new Action(() => page.Controls.Add(c)));
+            }
+        }
+        public void ClearAllControls()
         {
             if (_form == null) return;
 
             _form.Invoke(new Action(() =>
             {
-                element.Text = text;
+                foreach (var page in _pluginPages.Values)
+                {
+                    page.Controls.Clear();
+                }
             }));
-        }
 
-        /// <summary>
-        /// Setzt den Text eines Buttons.
-        /// </summary>
-        public void SetText(Button element, string text)
+            _activeControls.Clear();
+        }
+        public void DeleteAllPages()
         {
             if (_form == null) return;
 
             _form.Invoke(new Action(() =>
             {
-                element.Text = text;
+                while (_form.tabControl1.TabPages.Count > 1)
+                {
+                    _form.tabControl1.TabPages.RemoveAt(1);
+                }
             }));
+
+            _pluginPages.Clear();
         }
+        
+
+
+        public void ResetAll()
+        {
+            ClearAllControls();
+            DeleteAllPages();
+        }
+
     }
 }

@@ -58,9 +58,12 @@ namespace PyCross.API.ModuleLoader
         /// <summary>
         /// Gibt alle Plugins zurück (z. B. für Python oder Debugging).
         /// </summary>
-        public static IReadOnlyDictionary<string, IPythonPlugin> GetAll()
+        public static Dictionary<string, object> GetAll()
         {
-            return _plugins;
+            return _plugins.ToDictionary(
+                x => x.Key,
+                x => (object)x.Value  // wichtig: konkrete Klasse zurückgeben
+            );
         }
     }
 }

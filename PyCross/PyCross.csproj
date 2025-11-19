@@ -9,13 +9,18 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Remove="Stubs\**" />
+    <EmbeddedResource Remove="Stubs\**" />
+    <None Remove="Stubs\**" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Python.Runtime" Version="2.7.9" />
     <PackageReference Include="pythonnet" Version="3.0.5" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Bootstrap\" />
-    <Folder Include="Stubs\" />
   </ItemGroup>
 
 </Project>

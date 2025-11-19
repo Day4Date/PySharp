@@ -1,7 +1,10 @@
-﻿using System.Diagnostics;
-using System.Windows.Forms;
-using Python.Runtime;
+﻿using PyCross.API;
+using PyCross.API.HotReload;
 using PyCross.API.ModuleLoader;
+using PyCross.API.GUI;
+using Python.Runtime;
+using System.Diagnostics;
+using System.Windows.Forms;
 
 namespace PyCross
 {
@@ -16,6 +19,8 @@ namespace PyCross
         {
             InitializeComponent();
             ModuleLoader.InitAll(this);
+            string stubPath = Path.Combine(Directory.GetParent(Application.StartupPath).Parent.Parent.FullName, "Plugins", "pycross.pyi");
+            PythonStubGenerator.Generate(stubPath);
             listView1.View = View.Details;
             listView1.Columns.Add("Python Plugins", 250);
             InitPythonRuntime();
@@ -73,44 +78,6 @@ namespace PyCross
                 MessageBox.Show("Fehler beim Laden der Plugins:\n" + ex.Message);
             }
         }
-//        private void InitPythonRuntime()
-//        {
-//            string projectDir = Directory.GetParent(Application.StartupPath).Parent.Parent.FullName;
-//            string pythonHome = Path.Combine(projectDir, "PyRuntime");
-//            string pythonDll = Directory.GetFiles(pythonHome, "python31*.dll").FirstOrDefault();
-
-//            if (pythonDll == null)
-//            {
-//                AppendLog("Keine Python-DLL gefunden!");
-//                return;
-//            }
-
-//            Runtime.PythonDLL = pythonDll;
-//            PythonEngine.PythonHome = pythonHome;
-//            PythonEngine.PythonPath = pythonHome + ";" + Path.Combine(pythonHome, "Lib");
-
-//            PythonEngine.Initialize();
-//            PythonEngine.BeginAllowThreads(); // wichtig für spätere GIL-Nutzung
-
-//            using (Py.GIL())
-//            {
-//                PythonEngine.Exec(@"
-//import clr
-//clr.AddReference('PyCross')
-//from PyCross import PyAPI, WFAPI
-//log = PyAPI.log
-//get_info = PyAPI.get_info
-//get_character_data = PyAPI.get_character_data
-//start = PyAPI.start
-//stop = PyAPI.stop
-//move_item = PyAPI.move_item
-//button = WFAPI.button
-//label = WFAPI.label
-//create_page = WFAPI.create_page
-//show_page = WFAPI.show_page
-//");
-//            }
-//        }
         private void InitPythonRuntime()
         {
             // 1. Pfade setzen (gleich wie bisher)
@@ -141,46 +108,62 @@ import clr
 import sys
 import types
 
-# C# Projekt referenzieren
+# C# Assembly laden
 clr.AddReference('PyCross')
 
-# Plugin registry laden
-from PyCross.API.ModuleLoader import PythonModule
+# Richtige Accessor-Klasse importieren!
+from PyCross.API.ModuleLoader import PythonPluginAccessor
 
-# Neues Modul erzeugen
+# Neues Modul erstellen
 pycross = types.ModuleType('pycross')
 
-# Plugins abrufen
-plugins = PythonModule.all()
+# Plugin-Instanzen abrufen
+plugins = PythonPluginAccessor.all()
 
-# Alle Plugin-Methoden exportieren
+
+# Export aller öffentlichen Methoden aller Plugins
 for name, plugin in plugins.items():
+
+    # Durch alle Attribute der Plugin-Klasse gehen
     for attr_name in dir(plugin):
+
+        # interne/private Methoden überspringen
         if attr_name.startswith('_'):
             continue
 
+        # Attribut abrufen
         attr = getattr(plugin, attr_name)
 
+        # nur Funktionen exportieren
         if callable(attr):
             setattr(pycross, attr_name, attr)
 
-# Modul registrieren
+# Modul offiziell registrieren
 sys.modules['pycross'] = pycross
+
+from PyCross.API.GUI import WFAPI
+pycross.GUI = WFAPI.GUI
 ");
+                    AppendLog("Python initialisiert und pycross-Modul erstellt.");
                 }
                 catch (PythonException ex)
                 {
-                    MessageBox.Show(ex.ToString(), "Python Fehler");
+                    var formatted = PythonErrorHandler.FormatException(ex);
+                    AppendLog(formatted);          // ins Log
                 }
+
             }
         }
-
         private void button1_Click(object sender, EventArgs e)
         {
+            var gui = ModuleLoader.Get("gui") as WFAPI;
+            if (gui != null)
+            {
+                gui.ResetAll();
+            }
             LoadPythonPlugins();
-            bool is64 = Environment.Is64BitProcess;
-            AppendLog($"Programm läuft als {(is64 ? "x64" : "x86")} - stelle sicher, dass PyRuntime dazu passt.");
-
+            string pluginFolder = Path.Combine(Directory.GetParent(Application.StartupPath).Parent.Parent.FullName, "Plugins");
+            //PythonPluginHotReload.Start(this, pluginFolder);
         }
 
         private void button2_Click(object sender, EventArgs e)
