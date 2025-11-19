@@ -161,6 +161,7 @@ pycross.GUI = WFAPI.GUI
             {
                 gui.ResetAll();
             }
+            ResetPythonPlugins();
             LoadPythonPlugins();
             string pluginFolder = Path.Combine(Directory.GetParent(Application.StartupPath).Parent.Parent.FullName, "Plugins");
             //PythonPluginHotReload.Start(this, pluginFolder);
@@ -199,6 +200,15 @@ pycross.GUI = WFAPI.GUI
                     AppendLog($"[Fehler] {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
                 }
             });
+        }
+        private void ResetPythonPlugins()
+        {
+            if (_loadedPlugins.Count == 0)
+                return;
+            using (Py.GIL())
+            {
+                _loadedPlugins.Clear();
+            }
         }
 
         private void StartPluginEventLoop()
